@@ -43,10 +43,10 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
       description
     );
 
-    if (result) {
-      setCurrentImage(result);
-      onImageGenerated(result);
-    } else if (error?.type === 'INVALID_API_KEY') {
+    if (result.image) {
+      setCurrentImage(result.image);
+      onImageGenerated(result.image);
+    } else if (result.error?.type === 'INVALID_API_KEY') {
       onApiKeyInvalid();
     }
   };

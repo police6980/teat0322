@@ -76,7 +76,7 @@ export function useGeminiApi() {
       conceptNameKo: string,
       conceptId: string,
       koreanDescription: string
-    ): Promise<GeneratedImage | null> => {
+    ): Promise<{ image: GeneratedImage; error: null } | { image: null; error: ApiError }> => {
       setStatus('translating');
       setError(null);
 
@@ -122,7 +122,7 @@ export function useGeminiApi() {
         };
 
         setStatus('success');
-        return generatedImage;
+        return { image: generatedImage, error: null };
       } catch (err) {
         const apiError = classifyError(err);
         setError(apiError);
@@ -142,7 +142,7 @@ export function useGeminiApi() {
           }, 1000);
         }
 
-        return null;
+        return { image: null, error: apiError };
       }
     },
     [translateToEnglish]
