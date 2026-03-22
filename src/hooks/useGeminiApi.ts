@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import {
   GEMINI_IMAGE_MODEL,
   GEMINI_TEXT_MODEL,
@@ -19,7 +19,7 @@ function classifyError(error: unknown): ApiError {
   const lower = msg.toLowerCase();
 
   let type: ApiErrorType = 'UNKNOWN';
-  let message = '알 수 없는 오류가 발생했습니다.';
+  let message = `오류가 발생했습니다: ${msg}`;
   let retryAfter: number | undefined;
 
   if (lower.includes('api key') || lower.includes('401') || lower.includes('api_key_invalid')) {
@@ -57,13 +57,15 @@ export function useGeminiApi() {
   /** 한국어 설명을 영어로 번역 */
   const translateToEnglish = useCallback(
     async (apiKey: string, koreanText: string): Promise<string> => {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const textModel = genAI.getGenerativeModel({
+      const genAI = new GoogleGenAI({ apiKey });
+      const result = await genAI.models.generateContent({
         model: GEMINI_TEXT_MODEL,
-        systemInstruction: TRANSLATION_SYSTEM_PROMPT,
+        contents: koreanText,
+        config: {
+          systemInstruction: TRANSLATION_SYSTEM_PROMPT,
+        },
       });
-      const result = await textModel.generateContent(koreanText);
-      return result.response.text();
+      return result.text ?? '';
     },
     []
   );
@@ -89,21 +91,18 @@ export function useGeminiApi() {
 
         setStatus('generating');
 
-        // 3단계: Gemini 이미지 생성 API 호출
-        const genAI = new GoogleGenerativeAI(apiKey);
-
-        // responseModalities 설정 필수 — 누락 시 이미지 미반환
-        const imageModel = genAI.getGenerativeModel({
+        // 3단계: Gemini 이미지 생성 API 호출 (@google/genai SDK)
+        const genAI = new GoogleGenAI({ apiKey });
+        const result = await genAI.models.generateContent({
           model: GEMINI_IMAGE_MODEL,
-          generationConfig: {
+          contents: imagePrompt,
+          config: {
             responseModalities: ['TEXT', 'IMAGE'],
-          } as never,
+          },
         });
 
-        const result = await imageModel.generateContent(imagePrompt);
-
         // 4단계: 응답에서 base64 이미지 데이터 추출
-        const parts = result.response.candidates?.[0]?.content?.parts ?? [];
+        const parts = result.candidates?.[0]?.content?.parts ?? [];
         const imagePart = parts.find((p) => p.inlineData != null);
 
         if (!imagePart?.inlineData) {
@@ -114,8 +113,8 @@ export function useGeminiApi() {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           conceptId,
           conceptNameKo,
-          imageData: imagePart.inlineData.data,
-          mimeType: imagePart.inlineData.mimeType,
+          imageData: imagePart.inlineData.data ?? '',
+          mimeType: imagePart.inlineData.mimeType ?? 'image/png',
           prompt: imagePrompt,
           translatedDescription,
           createdAt: new Date(),
