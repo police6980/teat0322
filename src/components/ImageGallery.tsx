@@ -6,17 +6,20 @@ interface ImageGalleryProps {
   onClear: () => void;
 }
 
-/** 세션 갤러리 컴포넌트 — 현재 세션 생성 이미지 썸네일 표시 */
+/** 세션 갤러리 컴포넌트 — 생성된 SVG 애니메이션 썸네일 표시 */
 export function ImageGallery({ images, onClear }: ImageGalleryProps) {
   const [modalImage, setModalImage] = useState<GeneratedImage | null>(null);
 
   if (images.length === 0) return null;
 
   const handleDownload = (image: GeneratedImage) => {
+    const blob = new Blob([image.svgCode], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = `data:${image.mimeType};base64,${image.imageData}`;
-    a.download = `${image.conceptId}-${image.id}.png`;
+    a.href = url;
+    a.download = `${image.conceptId}-${image.id}.svg`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -40,12 +43,14 @@ export function ImageGallery({ images, onClear }: ImageGalleryProps) {
             <button
               key={img.id}
               onClick={() => setModalImage(img)}
-              className="group relative aspect-square rounded-lg overflow-hidden border border-navy-600 hover:border-scigreen-500 transition-colors"
+              className="group relative aspect-square rounded-lg overflow-hidden border border-navy-600 hover:border-scigreen-500 transition-colors bg-white"
             >
-              <img
-                src={`data:${img.mimeType};base64,${img.imageData}`}
-                alt={img.conceptNameKo}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              <iframe
+                srcDoc={img.svgCode}
+                title={img.conceptNameKo}
+                className="w-full h-full pointer-events-none"
+                style={{ border: 'none' }}
+                sandbox="allow-scripts"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-navy-900 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute bottom-0 left-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -58,7 +63,7 @@ export function ImageGallery({ images, onClear }: ImageGalleryProps) {
         </div>
       </div>
 
-      {/* 이미지 상세 모달 */}
+      {/* 상세 모달 */}
       {modalImage && (
         <div
           className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4"
@@ -80,7 +85,7 @@ export function ImageGallery({ images, onClear }: ImageGalleryProps) {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  다운로드
+                  SVG 저장
                 </button>
                 <button
                   onClick={() => setModalImage(null)}
@@ -92,11 +97,15 @@ export function ImageGallery({ images, onClear }: ImageGalleryProps) {
                 </button>
               </div>
             </div>
-            <img
-              src={`data:${modalImage.mimeType};base64,${modalImage.imageData}`}
-              alt={modalImage.conceptNameKo}
-              className="w-full rounded-xl"
-            />
+            <div className="rounded-xl overflow-hidden bg-white">
+              <iframe
+                srcDoc={modalImage.svgCode}
+                title={modalImage.conceptNameKo}
+                className="w-full"
+                style={{ height: '400px', border: 'none' }}
+                sandbox="allow-scripts"
+              />
+            </div>
             <p className="mt-3 text-xs text-gray-500 font-sans">
               생성 시간: {modalImage.createdAt.toLocaleTimeString('ko-KR')}
             </p>

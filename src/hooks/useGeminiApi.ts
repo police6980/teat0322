@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import {
-  GEMINI_IMAGE_MODEL,
+  GEMINI_SVG_MODEL,
   GEMINI_TEXT_MODEL,
   type ApiError,
   type ApiErrorType,
@@ -13,7 +13,7 @@ import {
   TRANSLATION_SYSTEM_PROMPT,
 } from '../utils/promptBuilder';
 
-/** HTTP 상태 코드를 에러 타입으로 변환 */
+/** 에러를 분류해 사용자 친화적 ApiError로 변환 */
 function classifyError(error: unknown): ApiError {
   const msg = error instanceof Error ? error.message : String(error);
   const lower = msg.toLowerCase();
@@ -45,10 +45,19 @@ function classifyError(error: unknown): ApiError {
   return { type, message, retryAfter };
 }
 
-/**
- * Gemini API 호출을 담당하는 커스텀 훅.
- * 텍스트 번역(gemini-2.0-flash) + 이미지 생성(gemini-2.0-flash-preview-image-generation) 순서로 처리.
- */
+/** 응답 텍스트에서 SVG 코드를 추출 */
+function extractSvg(text: string): string {
+  // 코드 펜스 안의 SVG 추출
+  const fenceMatch = text.match(/```(?:svg|xml)?\s*([\s\S]*?)```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+
+  // 코드 펜스 없이 <svg> 태그만 있는 경우
+  const tagMatch = text.match(/<svg[\s\S]*<\/svg>/);
+  if (tagMatch) return tagMatch[0].trim();
+
+  return '';
+}
+
 export function useGeminiApi() {
   const [status, setStatus] = useState<GenerationStatus>('idle');
   const [error, setError] = useState<ApiError | null>(null);
@@ -70,7 +79,7 @@ export function useGeminiApi() {
     []
   );
 
-  /** 이미지 생성 실행 */
+  /** SVG 애니메이션 생성 */
   const generateImage = useCallback(
     async (
       apiKey: string,
@@ -86,36 +95,30 @@ export function useGeminiApi() {
         // 1단계: 한국어 → 영어 번역
         const translatedDescription = await translateToEnglish(apiKey, koreanDescription);
 
-        // 2단계: 이미지 생성 프롬프트 조합
-        const imagePrompt = buildImagePrompt(conceptNameEn, translatedDescription);
+        // 2단계: SVG 생성 프롬프트 조합
+        const svgPrompt = buildImagePrompt(conceptNameEn, translatedDescription);
 
         setStatus('generating');
 
-        // 3단계: Gemini 이미지 생성 API 호출 (@google/genai SDK)
+        // 3단계: Gemini로 SVG 코드 생성
         const genAI = new GoogleGenAI({ apiKey });
         const result = await genAI.models.generateContent({
-          model: GEMINI_IMAGE_MODEL,
-          contents: imagePrompt,
-          config: {
-            responseModalities: ['TEXT', 'IMAGE'],
-          },
+          model: GEMINI_SVG_MODEL,
+          contents: svgPrompt,
         });
 
-        // 4단계: 응답에서 base64 이미지 데이터 추출
-        const parts = result.candidates?.[0]?.content?.parts ?? [];
-        const imagePart = parts.find((p) => p.inlineData != null);
+        const svgCode = extractSvg(result.text ?? '');
 
-        if (!imagePart?.inlineData) {
-          throw new Error('이미지 데이터가 응답에 포함되지 않았습니다.');
+        if (!svgCode) {
+          throw new Error('SVG 코드가 응답에 포함되지 않았습니다. 다시 시도해주세요.');
         }
 
         const generatedImage: GeneratedImage = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           conceptId,
           conceptNameKo,
-          imageData: imagePart.inlineData.data ?? '',
-          mimeType: imagePart.inlineData.mimeType ?? 'image/png',
-          prompt: imagePrompt,
+          svgCode,
+          prompt: svgPrompt,
           translatedDescription,
           createdAt: new Date(),
         };
@@ -127,7 +130,6 @@ export function useGeminiApi() {
         setError(apiError);
         setStatus('error');
 
-        // Rate limit 시 카운트다운 시작
         if (apiError.retryAfter) {
           let remaining = apiError.retryAfter;
           setRetryCountdown(remaining);

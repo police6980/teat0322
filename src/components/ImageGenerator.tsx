@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { ConceptSelector } from './ConceptSelector';
 import { LoadingAnimation } from './LoadingAnimation';
 import { SCIENCE_CONCEPTS } from '../utils/scienceConcepts';
@@ -17,13 +17,9 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
   const [description, setDescription] = useState('');
   const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
 
   const { status, error, retryCountdown, generateImage, reset, isLoading } = useGeminiApi();
 
-  // 개념 변경 시 description 초기화
   const handleConceptSelect = useCallback((concept: ScienceConcept) => {
     setSelectedConcept(concept);
     setDescription('');
@@ -53,36 +49,13 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
 
   const handleDownload = () => {
     if (!currentImage) return;
+    const blob = new Blob([currentImage.svgCode], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = `data:${currentImage.mimeType};base64,${currentImage.imageData}`;
-    a.download = `${currentImage.conceptId}-particle-model.png`;
+    a.href = url;
+    a.download = `${currentImage.conceptId}-particle-model.svg`;
     a.click();
-  };
-
-  const handleCopyToClipboard = async () => {
-    if (!currentImage) return;
-    try {
-      // base64를 Blob으로 변환 후 클립보드에 복사
-      const byteString = atob(currentImage.imageData);
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-      }
-      const blob = new Blob([ab], { type: currentImage.mimeType });
-      await navigator.clipboard.write([
-        new ClipboardItem({ [currentImage.mimeType]: blob }),
-      ]);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch {
-      // 클립보드 API 미지원 시 data URL 복사
-      await navigator.clipboard.writeText(
-        `data:${currentImage.mimeType};base64,${currentImage.imageData}`
-      );
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    }
+    URL.revokeObjectURL(url);
   };
 
   const isButtonDisabled =
@@ -156,7 +129,7 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
                 <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                이미지 생성
+                애니메이션 생성
               </>
             )}
           </button>
@@ -204,7 +177,8 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
         <div className="bg-navy-800 border border-navy-600 rounded-xl p-5 h-full flex flex-col">
           <h2 className="font-mono text-sm text-scigreen-400 tracking-widest uppercase flex items-center gap-2 mb-4">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             생성 결과
           </h2>
@@ -213,11 +187,10 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
             {/* 로딩 상태 */}
             {isLoading && <LoadingAnimation status={status} />}
 
-            {/* 대기 상태 (이미지 없음) */}
+            {/* 대기 상태 */}
             {!isLoading && !currentImage && status !== 'error' && (
               <div className="text-center text-gray-600">
                 <div className="mb-4 relative mx-auto w-24 h-24">
-                  {/* 대기 중 입자 장식 */}
                   {[0, 72, 144, 216, 288].map((deg, i) => (
                     <div
                       key={i}
@@ -232,27 +205,28 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
                   ))}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <svg className="w-10 h-10 text-navy-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 </div>
-                <p className="font-mono text-sm">과학 개념을 입력하고</p>
-                <p className="font-mono text-sm">이미지를 생성해보세요</p>
+                <p className="font-mono text-sm">학생의 설명을 입력하고</p>
+                <p className="font-mono text-sm">애니메이션을 생성해보세요</p>
               </div>
             )}
 
-            {/* 생성된 이미지 */}
+            {/* 생성된 SVG 애니메이션 */}
             {!isLoading && currentImage && (
               <div className="w-full space-y-4">
-                <div className="relative rounded-xl overflow-hidden border border-navy-600 bg-white">
-                  <img
-                    ref={imgRef}
-                    src={`data:${currentImage.mimeType};base64,${currentImage.imageData}`}
-                    alt={currentImage.conceptNameKo}
-                    className="w-full object-contain"
-                    style={{ minHeight: '300px', maxHeight: '600px' }}
+                <div className="relative rounded-xl overflow-hidden border border-navy-600 bg-white"
+                  style={{ minHeight: '360px' }}>
+                  <iframe
+                    srcDoc={currentImage.svgCode}
+                    title={currentImage.conceptNameKo}
+                    className="w-full"
+                    style={{ height: '400px', border: 'none' }}
+                    sandbox="allow-scripts"
                   />
-                  <canvas ref={canvasRef} className="hidden" />
                 </div>
 
                 {/* 액션 버튼들 */}
@@ -264,30 +238,9 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    PNG 저장
-                  </button>
-                  <button
-                    onClick={handleCopyToClipboard}
-                    className="flex items-center gap-2 bg-navy-700 hover:bg-navy-600 text-white font-mono text-sm py-2 px-4 rounded-lg transition-colors"
-                  >
-                    {copySuccess ? (
-                      <>
-                        <svg className="w-4 h-4 text-scigreen-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        복사됨!
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        클립보드 복사
-                      </>
-                    )}
+                    SVG 저장
                   </button>
 
-                  {/* 프롬프트 표시 토글 */}
                   <button
                     onClick={() => setShowPrompt((v) => !v)}
                     className="flex items-center gap-2 text-gray-500 hover:text-scigreen-400 font-mono text-xs py-2 px-3 rounded-lg transition-colors border border-navy-600 hover:border-scigreen-600"
@@ -299,7 +252,7 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
                   </button>
                 </div>
 
-                {/* 프롬프트 상세 표시 */}
+                {/* 프롬프트 상세 */}
                 {showPrompt && (
                   <div className="bg-navy-900 border border-navy-600 rounded-xl p-4 space-y-3">
                     <div>
@@ -309,7 +262,7 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
                       </p>
                     </div>
                     <div>
-                      <p className="font-mono text-xs text-scigreen-400 mb-1 tracking-wider">이미지 생성 프롬프트</p>
+                      <p className="font-mono text-xs text-scigreen-400 mb-1 tracking-wider">생성 프롬프트</p>
                       <pre className="font-mono text-xs text-gray-400 leading-relaxed whitespace-pre-wrap break-words">
                         {currentImage.prompt}
                       </pre>
