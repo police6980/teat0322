@@ -49,11 +49,12 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
 
   const handleDownload = () => {
     if (!currentImage) return;
-    const blob = new Blob([currentImage.svgCode], { type: 'image/svg+xml' });
+    const isSvgOnly = currentImage.svgCode.trimStart().startsWith('<svg');
+    const blob = new Blob([currentImage.svgCode], { type: isSvgOnly ? 'image/svg+xml' : 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${currentImage.conceptId}-particle-model.svg`;
+    a.download = `${currentImage.conceptId}-particle-sim.${isSvgOnly ? 'svg' : 'html'}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -238,7 +239,7 @@ export function ImageGenerator({ apiKey, onImageGenerated, onApiKeyInvalid }: Im
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    SVG 저장
+                    HTML 저장
                   </button>
 
                   <button

@@ -45,11 +45,19 @@ function classifyError(error: unknown): ApiError {
   return { type, message, retryAfter };
 }
 
-/** 응답 텍스트에서 SVG 코드를 추출 */
+/** 응답 텍스트에서 HTML 또는 SVG 코드를 추출 */
 function extractSvg(text: string): string {
-  // 코드 펜스 안의 SVG 추출
-  const fenceMatch = text.match(/```(?:svg|xml)?\s*([\s\S]*?)```/);
+  // 코드 펜스 안의 HTML/SVG 추출
+  const fenceMatch = text.match(/```(?:html|svg|xml)?\s*([\s\S]*?)```/);
   if (fenceMatch) return fenceMatch[1].trim();
+
+  // <!DOCTYPE html> 포함된 전체 HTML 문서
+  const htmlDocMatch = text.match(/<!DOCTYPE[\s\S]*<\/html>/i);
+  if (htmlDocMatch) return htmlDocMatch[0].trim();
+
+  // <html> 태그로 시작하는 경우
+  const htmlMatch = text.match(/<html[\s\S]*<\/html>/i);
+  if (htmlMatch) return htmlMatch[0].trim();
 
   // 코드 펜스 없이 <svg> 태그만 있는 경우
   const tagMatch = text.match(/<svg[\s\S]*<\/svg>/);
