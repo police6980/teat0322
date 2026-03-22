@@ -1,6 +1,6 @@
 /** Gemini API 모델 상수 */
 export const GEMINI_IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation';
-export const GEMINI_TEXT_MODEL = 'gemini-2.0-flash';
+export const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 
 /** 과학 개념 프리셋 타입 */
 export interface ScienceConcept {
