@@ -2,8 +2,11 @@ import { useState, useCallback } from 'react';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { ImageGenerator } from './components/ImageGenerator';
 import { ImageGallery } from './components/ImageGallery';
+import { BoyleLaw } from './components/simulations/BoyleLaw';
 import { useApiKey } from './hooks/useApiKey';
 import type { GeneratedImage, Theme } from './types';
+
+type AppTab = 'lab' | 'ai';
 
 /** 세션 갤러리 최대 이미지 수 */
 const MAX_GALLERY_IMAGES = 10;
@@ -14,6 +17,7 @@ export default function App() {
   const [apiKeyError, setApiKeyError] = useState('');
   const [gallery, setGallery] = useState<GeneratedImage[]>([]);
   const [theme, setTheme] = useState<Theme>('dark');
+  const [activeTab, setActiveTab] = useState<AppTab>('lab');
 
   const handleApiKeySubmit = useCallback(
     (key: string) => {
@@ -93,6 +97,27 @@ export default function App() {
               </div>
             </div>
 
+            {/* 탭 내비게이션 */}
+            <nav className="flex gap-1 bg-navy-900 rounded-xl p-1 border border-navy-700">
+              {([
+                { id: 'lab', label: '🔬 실험실', sub: '개념 확인' },
+                { id: 'ai',  label: '✨ AI 생성', sub: '오개념 시각화' },
+              ] as { id: AppTab; label: string; sub: string }[]).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`px-4 py-2 rounded-lg transition-all font-mono text-xs flex flex-col items-center leading-tight ${
+                    activeTab === t.id
+                      ? 'bg-scigreen-600 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <span>{t.label}</span>
+                  <span className="text-[10px] opacity-70">{t.sub}</span>
+                </button>
+              ))}
+            </nav>
+
             {/* 우측 컨트롤 */}
             <div className="flex items-center gap-3">
               {/* 테마 토글 */}
@@ -133,48 +158,68 @@ export default function App() {
 
         {/* ─── 메인 콘텐츠 ─── */}
         <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-          {hasApiKey ? (
-            <>
-              <ImageGenerator
-                apiKey={apiKey}
-                onImageGenerated={handleImageGenerated}
-                onApiKeyInvalid={handleApiKeyInvalid}
-              />
-              <ImageGallery images={gallery} onClear={handleClearGallery} />
-            </>
-          ) : (
-            // API 키 없을 때 안내 화면
-            <div className="flex items-center justify-center min-h-[60vh]">
-              <div className="text-center text-gray-500">
-                <div className="mb-6 relative mx-auto w-32 h-32">
-                  {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
-                    <div
-                      key={i}
-                      className="absolute w-3 h-3 rounded-full"
-                      style={{
-                        backgroundColor: `hsl(${i * 45}, 70%, 60%)`,
-                        top: '50%',
-                        left: '50%',
-                        transform: `rotate(${deg}deg) translateX(48px) translateY(-50%)`,
-                        opacity: 0.3,
-                        animation: `particleFloat ${1.5 + i * 0.2}s ease-in-out infinite`,
-                        animationDelay: `${i * 0.15}s`,
-                      }}
-                    />
-                  ))}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-10 h-10 rounded-full border-2 border-navy-600" />
-                  </div>
-                </div>
-                <p className="font-mono text-lg mb-2">API 키를 입력해주세요</p>
-                <button
-                  onClick={() => setShowApiKeyModal(true)}
-                  className="font-mono text-sm text-scigreen-400 hover:text-scigreen-300 transition-colors underline"
-                >
-                  API 키 입력하기 →
+          {/* ── 실험실 탭 (API 키 불필요) ── */}
+          {activeTab === 'lab' && (
+            <div className="space-y-4">
+              {/* 개념 선택 (지금은 보일의 법칙만) */}
+              <div className="flex gap-2 flex-wrap">
+                <button className="font-mono text-xs bg-scigreen-600 text-white px-4 py-2 rounded-xl">
+                  보일의 법칙
+                </button>
+                <button className="font-mono text-xs text-gray-600 border border-navy-700 px-4 py-2 rounded-xl cursor-not-allowed" disabled title="준비 중">
+                  샤를의 법칙 (준비 중)
+                </button>
+                <button className="font-mono text-xs text-gray-600 border border-navy-700 px-4 py-2 rounded-xl cursor-not-allowed" disabled title="준비 중">
+                  확산 현상 (준비 중)
                 </button>
               </div>
+              <BoyleLaw />
             </div>
+          )}
+
+          {/* ── AI 생성 탭 ── */}
+          {activeTab === 'ai' && (
+            hasApiKey ? (
+              <>
+                <ImageGenerator
+                  apiKey={apiKey}
+                  onImageGenerated={handleImageGenerated}
+                  onApiKeyInvalid={handleApiKeyInvalid}
+                />
+                <ImageGallery images={gallery} onClear={handleClearGallery} />
+              </>
+            ) : (
+              <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="text-center text-gray-500">
+                  <div className="mb-6 relative mx-auto w-32 h-32">
+                    {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-3 h-3 rounded-full"
+                        style={{
+                          backgroundColor: `hsl(${i * 45}, 70%, 60%)`,
+                          top: '50%', left: '50%',
+                          transform: `rotate(${deg}deg) translateX(48px) translateY(-50%)`,
+                          opacity: 0.3,
+                          animation: `particleFloat ${1.5 + i * 0.2}s ease-in-out infinite`,
+                          animationDelay: `${i * 0.15}s`,
+                        }}
+                      />
+                    ))}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full border-2 border-navy-600" />
+                    </div>
+                  </div>
+                  <p className="font-mono text-lg mb-2">API 키를 입력해주세요</p>
+                  <button
+                    onClick={() => setShowApiKeyModal(true)}
+                    className="font-mono text-sm text-scigreen-400 hover:text-scigreen-300 transition-colors underline"
+                  >
+                    API 키 입력하기 →
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </main>
 
