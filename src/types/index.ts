@@ -2,6 +2,13 @@
 export const GEMINI_SVG_MODEL = 'gemini-2.5-pro';
 export const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 
+/** 시뮬레이션 변수 (슬라이더 하나) */
+export interface SimVariable {
+  id: string;
+  name: string;    // 한국어 변수 이름 (예: 온도)
+  effect: string;  // 이 변수가 커질 때 입자 행동 설명
+}
+
 /** 과학 개념 프리셋 타입 */
 export interface ScienceConcept {
   id: string;

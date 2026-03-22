@@ -7,10 +7,12 @@ import {
   type ApiErrorType,
   type GeneratedImage,
   type GenerationStatus,
+  type SimVariable,
 } from '../types';
 import {
   buildImagePrompt,
   TRANSLATION_SYSTEM_PROMPT,
+  type TranslatedVariable,
 } from '../utils/promptBuilder';
 
 /** 에러를 분류해 사용자 친화적 ApiError로 변환 */
@@ -46,7 +48,7 @@ function classifyError(error: unknown): ApiError {
 }
 
 /** 응답 텍스트에서 HTML 또는 SVG 코드를 추출 */
-function extractSvg(text: string): string {
+function extractCode(text: string): string {
   // 코드 펜스 안의 HTML/SVG 추출
   const fenceMatch = text.match(/```(?:html|svg|xml)?\s*([\s\S]*?)```/);
   if (fenceMatch) return fenceMatch[1].trim();
@@ -71,62 +73,78 @@ export function useGeminiApi() {
   const [error, setError] = useState<ApiError | null>(null);
   const [retryCountdown, setRetryCountdown] = useState<number>(0);
 
-  /** 한국어 설명을 영어로 번역 */
-  const translateToEnglish = useCallback(
-    async (apiKey: string, koreanText: string): Promise<string> => {
+  /** 한국어 변수 정보를 영어로 번역 */
+  const translateVariables = useCallback(
+    async (apiKey: string, variables: SimVariable[]): Promise<TranslatedVariable[]> => {
       const genAI = new GoogleGenAI({ apiKey });
-      const result = await genAI.models.generateContent({
-        model: GEMINI_TEXT_MODEL,
-        contents: koreanText,
-        config: {
-          systemInstruction: TRANSLATION_SYSTEM_PROMPT,
-        },
-      });
-      return result.text ?? '';
+
+      const results: TranslatedVariable[] = [];
+      for (const v of variables) {
+        const text = `Variable name: ${v.name}\nEffect description: ${v.effect}`;
+        const result = await genAI.models.generateContent({
+          model: GEMINI_TEXT_MODEL,
+          contents: text,
+          config: { systemInstruction: TRANSLATION_SYSTEM_PROMPT },
+        });
+        const translated = result.text ?? '';
+        // 각 줄 파싱
+        const nameMatch = translated.match(/Variable name:\s*(.+)/i);
+        const effectMatch = translated.match(/Effect description:\s*([\s\S]+)/i);
+        results.push({
+          nameEn: nameMatch?.[1]?.trim() ?? v.name,
+          effectEn: effectMatch?.[1]?.trim() ?? v.effect,
+        });
+      }
+      return results;
     },
     []
   );
 
-  /** SVG 애니메이션 생성 */
+  /** 인터랙티브 HTML 시뮬레이션 생성 */
   const generateImage = useCallback(
     async (
       apiKey: string,
       conceptNameEn: string,
       conceptNameKo: string,
       conceptId: string,
-      koreanDescription: string
+      variables: SimVariable[]
     ): Promise<{ image: GeneratedImage; error: null } | { image: null; error: ApiError }> => {
       setStatus('translating');
       setError(null);
 
       try {
-        // 1단계: 한국어 → 영어 번역
-        const translatedDescription = await translateToEnglish(apiKey, koreanDescription);
+        // 1단계: 변수 정보 번역
+        const translatedVars = await translateVariables(apiKey, variables);
 
-        // 2단계: SVG 생성 프롬프트 조합
-        const svgPrompt = buildImagePrompt(conceptNameEn, translatedDescription);
+        // 2단계: 프롬프트 생성
+        const prompt = buildImagePrompt(conceptNameEn, translatedVars);
 
         setStatus('generating');
 
-        // 3단계: Gemini로 SVG 코드 생성
+        // 3단계: Gemini로 HTML 코드 생성
         const genAI = new GoogleGenAI({ apiKey });
         const result = await genAI.models.generateContent({
           model: GEMINI_SVG_MODEL,
-          contents: svgPrompt,
+          contents: prompt,
         });
 
-        const svgCode = extractSvg(result.text ?? '');
+        const svgCode = extractCode(result.text ?? '');
 
         if (!svgCode) {
-          throw new Error('SVG 코드가 응답에 포함되지 않았습니다. 다시 시도해주세요.');
+          throw new Error('HTML 코드가 응답에 포함되지 않았습니다. 다시 시도해주세요.');
         }
+
+        // 번역된 변수 요약을 translatedDescription에 저장
+        const translatedDescription = translatedVars
+          .map((v) => `${v.nameEn}: ${v.effectEn}`)
+          .join('\n');
 
         const generatedImage: GeneratedImage = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           conceptId,
           conceptNameKo,
           svgCode,
-          prompt: svgPrompt,
+          prompt,
           translatedDescription,
           createdAt: new Date(),
         };
@@ -154,7 +172,7 @@ export function useGeminiApi() {
         return { image: null, error: apiError };
       }
     },
-    [translateToEnglish]
+    [translateVariables]
   );
 
   const reset = useCallback(() => {
