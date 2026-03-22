@@ -5,7 +5,7 @@
 
 /** 텍스트 번역을 위한 시스템 프롬프트 */
 export const TRANSLATION_SYSTEM_PROMPT =
-  'Translate the following Korean science concept description to English for scientific image generation. Keep scientific terms accurate. Return only the translated text.';
+  'Translate the following Korean student description to English exactly as written. Do NOT correct any scientific errors or misconceptions — translate the student\'s words faithfully, even if scientifically wrong. Return only the translated text.';
 
 /**
  * 번역된 설명과 개념명으로 이미지 생성 프롬프트를 조합한다.
@@ -18,19 +18,19 @@ export function buildImagePrompt(
   conceptNameEn: string,
   translatedDescription: string
 ): string {
-  return `Scientific particle model diagram, educational illustration style.
+  return `Draw a particle model diagram exactly as a student described it. This is for identifying student misconceptions, so you MUST draw what the student said, NOT what is scientifically correct.
 
-Concept: ${conceptNameEn}
-Visualization request: ${translatedDescription}
+Topic context: ${conceptNameEn}
+Student's description (draw this exactly): ${translatedDescription}
 
-Style requirements:
-- Clear particle representations as colored circles
-- Show relative distances and arrangements between particles
-- Use arrows to indicate movement or force direction
-- Clean white background with labeled elements
-- Elementary/middle school educational diagram style
-- No text overlays in the image
-- 2D flat illustration, scientific accuracy`;
+Drawing rules:
+- Represent particles as simple colored circles
+- Follow ONLY the student's description for arrangement, spacing, size, and movement
+- Do NOT correct scientific errors — if the student says particles touch each other in a gas, draw them touching
+- Use arrows only if the student mentioned movement or direction
+- Clean white background
+- No text labels in the image
+- 2D flat illustration style`;
 }
 
 /**
